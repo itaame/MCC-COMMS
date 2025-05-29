@@ -375,7 +375,10 @@ class MainWindow(QWidget):
                     self.bot_pool[obot]["last_used"] = time.time()
                     self._set_button_state(other_name)
             post(f"http://127.0.0.1:{port}/join", json={"loop": loop_name})
-            post(f"http://127.0.0.1:{port}/talk")
+            if self.delay_enabled:
+                threading.Timer(self.delay_seconds, lambda: post(f"http://127.0.0.1:{port}/talk")).start()
+            else:
+                post(f"http://127.0.0.1:{port}/talk")
         elif new_state == 1:
             if old_state == 2 and self.delay_enabled:
                 post(f"http://127.0.0.1:{port}/mute_after_delay")

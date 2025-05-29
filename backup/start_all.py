@@ -4,12 +4,21 @@ import time
 import sys
 import psutil
 
+from config_dialog import get_config_from_dialog, read_config
+
 DIR = os.path.dirname(sys.executable)
 
+# Only prompt on first run, reuse config otherwise
+config = get_config_from_dialog()
+
+SERVER = config['server']
+PORT = config['port']
+BOT_BASE = config['bot_base']
+
 bots = [
-    [os.path.join(DIR, "bot_server.exe"), "--bot-name", "FLIGHT", "--api-port", "6001"],
-    [os.path.join(DIR, "bot_server.exe"), "--bot-name", "FLIGHT1", "--api-port", "6002"],
-    [os.path.join(DIR, "bot_server.exe"), "--bot-name", "FLIGHT2", "--api-port", "6003"]
+    [os.path.join(DIR, "bot_server.exe"), "--server", SERVER, "--port", str(PORT), "--bot-name", f"{BOT_BASE}", "--api-port", "6001"],
+    [os.path.join(DIR, "bot_server.exe"), "--server", SERVER, "--port", str(PORT), "--bot-name", f"{BOT_BASE}1", "--api-port", "6002"],
+    [os.path.join(DIR, "bot_server.exe"), "--server", SERVER, "--port", str(PORT), "--bot-name", f"{BOT_BASE}2", "--api-port", "6003"]
 ]
 
 procs = []

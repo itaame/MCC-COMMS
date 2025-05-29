@@ -68,10 +68,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--bot-name", required=True)
 parser.add_argument("--api-port", required=True, type=int)
+parser.add_argument("--server", required=True)
+parser.add_argument("--port", required=True, type=int)
 args = parser.parse_args()
 
-SERVER = "comms.a.pinggy.link"
-PORT   = 23234
+SERVER = args.server
+PORT   = args.port
 USER   = args.bot_name
 
 certfile, keyfile = ensure_bot_cert(USER)
@@ -93,7 +95,7 @@ class LoopBot:
         self.dev_out   = DEFAULT_OUT    # output device index
         self.loop      = None           # currently joined loop (channel) name
         self.streaming = False          # True if currently "talking"
-        self.status    = "Starting…"    # human-readable status string
+        self.status    = "Starting…"
         self._recv_q   = queue.Queue()  # queue for received PCM audio
         self.playback_volume = 1.0      # Output volume (0.0-1.0)
         self._connect_mumble()          # connect to Mumble server
@@ -101,7 +103,7 @@ class LoopBot:
         self._start_playback_thread()   # start thread for playback
         self._users_by_channel = {}     # channel_id -> user count
 
-        # === DELAY feature (simple version) ===
+        # === DELAY feature (robust version) ===
         self.audio_delay_enabled = False        # if delay is active
         self.audio_delay_seconds = 3           # delay length (seconds)
         self.audio_delay_queue = queue.Queue() # queue for delayed audio
@@ -111,31 +113,56 @@ class LoopBot:
     def enable_audio_delay(self, seconds=3):
         self.audio_delay_enabled = True
         self.audio_delay_seconds = seconds
+        # print(f"[DELAY] Enabled with {seconds}s")
 
     def disable_audio_delay(self):
         self.audio_delay_enabled = False
+        # Immediately flush the queue
+        flushed = 0
         while not self.audio_delay_queue.empty():
-            try: self.audio_delay_queue.get_nowait()
-            except: break
+            try:
+                self.audio_delay_queue.get_nowait()
+                flushed += 1
+            except Exception:
+                break
+        # print(f"[DELAY] Disabled. Flushed {flushed} audio chunks.")
 
     def _delay_audio_worker(self):
         while True:
             try:
                 tstamp, pcm = self.audio_delay_queue.get()
+                if not self.audio_delay_enabled:
+                    # Discard all queued audio when delay is off
+                    # print("[DELAY WORKER] Discarding chunk (delay is OFF)")
+                    continue
                 wait_needed = (tstamp + self.audio_delay_seconds) - time.time()
                 if wait_needed > 0:
                     time.sleep(wait_needed)
-                if self.streaming and self.client.sound_output:
-                    self.client.sound_output.add_sound(pcm)
-            except Exception:
+                # Play out only if in "talking" mode
+                if self.streaming and self.client and getattr(self.client, "sound_output", None):
+                    try:
+                        self.client.sound_output.add_sound(pcm)
+                    except Exception as e:
+                        print(f"[DELAY WORKER] Error playing sound: {e}")
+            except Exception as e:
+                # print(f"[DELAY WORKER ERROR] {e}")
                 time.sleep(0.01)
 
     def _mic_callback(self, indata, frames, ti, status):
-        pcm = (indata[:,0] * 32767).astype(np.int16).tobytes()
+        if indata is None or len(indata) == 0:
+            return
+        try:
+            pcm = (indata[:,0] * 32767).astype(np.int16).tobytes()
+        except Exception as e:
+            print(f"[MIC CALLBACK ERROR] Could not convert indata to PCM: {e}")
+            return
         if self.audio_delay_enabled:
             self.audio_delay_queue.put((time.time(), pcm))
-        elif self.streaming and self.client.sound_output:
-            self.client.sound_output.add_sound(pcm)
+        elif self.streaming and self.client and getattr(self.client, "sound_output", None):
+            try:
+                self.client.sound_output.add_sound(pcm)
+            except Exception as e:
+                print(f"[AUDIO OUT ERROR] {e}")
 
     def _connect_mumble(self):
         self.client = Mumble(
@@ -162,6 +189,7 @@ class LoopBot:
         self._update_user_map()
 
     def _on_sound_received(self, user, soundchunk):
+        # Receive PCM from others, put to playback queue
         self._recv_q.put(soundchunk.pcm)
 
     def _start_mic_stream(self):
