@@ -4,3 +4,7 @@ pyinstaller --noconsole --onefile --add-data "logo.png;." --add-data "logo2.png;
 pyinstaller --noconsole --onefile --icon=logo2.ico --add-data "certs;certs" start_all.py
 
 To make a "double-clickable" .app for GUI apps, use the --windowed and --name flags:
+
+pyinstaller --onefile --windowed --icon=logo2.icns start_all.py
+pyinstaller --onefile --add-data="logo.png:." --add-data="logo2.png:." --add-data="soundwave.py:." gui.py
+pyinstaller --onefile --add-data="certs:certs" bot_server.py                  
