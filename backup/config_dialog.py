@@ -8,9 +8,16 @@ Created on Thu May 29 17:45:21 2025
 import sys
 import json
 import os
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit,
+    QPushButton, QHBoxLayout, QComboBox
+)
 
 CONFIG_FILE = "run_config.json"
+
+ROLES = [
+    "FLIGHT", "CAPCOM", "FAO", "BME", "CPOO", "SCIENCE", "EVA"
+]
 
 def get_config_from_dialog():
     app = QApplication(sys.argv)
@@ -21,6 +28,8 @@ def get_config_from_dialog():
     server_input = QLineEdit("comms.a.pinggy.link")
     port_input = QLineEdit("23234")
     botname_input = QLineEdit("CAPCOM")
+    role_select = QComboBox()
+    role_select.addItems(ROLES)
 
     layout.addWidget(QLabel("Server address:"))
     layout.addWidget(server_input)
@@ -28,6 +37,8 @@ def get_config_from_dialog():
     layout.addWidget(port_input)
     layout.addWidget(QLabel("Bot base name:"))
     layout.addWidget(botname_input)
+    layout.addWidget(QLabel("Role:"))
+    layout.addWidget(role_select)
 
     hbox = QHBoxLayout()
     ok_btn = QPushButton("OK")
@@ -43,7 +54,7 @@ def get_config_from_dialog():
         result['server'] = server_input.text().strip()
         result['port'] = int(port_input.text().strip())
         result['bot_base'] = botname_input.text().strip()
-        # Save to a temp config file
+        result['role'] = role_select.currentText()
         with open(CONFIG_FILE, "w") as f:
             json.dump(result, f)
         window.close()
@@ -53,7 +64,6 @@ def get_config_from_dialog():
     window.show()
     app.exec()
 
-    # If user closed without clicking OK, try to read last config (fallback)
     if not result and os.path.isfile(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             result = json.load(f)
@@ -65,6 +75,6 @@ def read_config():
             return json.load(f)
     return None
 
-def write_config(server, port, bot_base):
+def write_config(server, port, bot_base, role):
     with open(CONFIG_FILE, "w") as f:
-        json.dump({"server": server, "port": port, "bot_base": bot_base}, f)
+        json.dump({"server": server, "port": port, "bot_base": bot_base, "role": role}, f)

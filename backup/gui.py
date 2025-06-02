@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, threading
+import sys, time, threading, json, os
 import requests
 import sounddevice as sd
 import numpy as np
@@ -10,22 +10,19 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QIcon
 from soundwave import SoundwaveWidget  # Custom widget for mic audio visualization
+from config_dialog import read_config
 
-# === LOOP AND BOT CONFIGURATION ARRAYS ===
-LOOPS = [
-    {"name": "FLIGHT LOOP",        "can_listen": True,  "can_talk": True},
-    {"name": "SPACE-GROUND LOOP",  "can_listen": True,  "can_talk": True},
-    {"name": "BME LOOP",           "can_listen": False, "can_talk": False},
-    {"name": "SCIENCE LOOP",       "can_listen": True,  "can_talk": False},
-    {"name": "SYSTEMS LOOP",       "can_listen": True,  "can_talk": False},
-    {"name": "PLANING LOOP",       "can_listen": True,  "can_talk": False},
-    {"name": "EVA LOOP",           "can_listen": True,  "can_talk": False},
-    {"name": "PR LOOP",            "can_listen": True,  "can_talk": False},
-    {"name": "OPS1 LOOP",          "can_listen": True,  "can_talk": True},
-    {"name": "OPS2 LOOP",          "can_listen": True,  "can_talk": True},
-    {"name": "OPS3 LOOP",          "can_listen": True,  "can_talk": True},
-    {"name": "OPS4 LOOP",          "can_listen": True,  "can_talk": True},
-]
+# === LOAD LOOPS BASED ON ROLE ===
+config = read_config()
+role = config.get("role", "FLIGHT")
+loop_file = os.path.join("LOOPS", f"loops_{role.upper()}.txt")
+try:
+    with open(loop_file, "r") as f:
+        LOOPS = json.load(f)
+except Exception as e:
+    print(f"Error loading {loop_file}: {e}")
+    LOOPS = []
+
 BOTS = [
     {"name": "BOT1", "port": 6001},
     {"name": "BOT2", "port": 6002},
